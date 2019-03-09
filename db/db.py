@@ -87,43 +87,11 @@ class Database(object):
         with _rollback(self.conn) as _db:
             _db.execute(sql, data)
 
-    def insert_into_table(self, table_name: str, data: any, columns: any) -> None:
-        query = 'INSERT INTO %s ' % table_name
-        if columns:
-            total_cols = len(columns)
-            index = 0
-            tmp_query = '('
-            for field in columns:
-                if index != total_cols - 1:
-                    tmp_query += field + ','
-                    index += 1
-                else:
-                    tmp_query += field + ') VALUES ('
-            query = query + tmp_query
-        else:
-            query = query + ' VALUES ('
-        index = 0
-        while index < len(data):
-            if index != len(data) - 1:
-                temp = '%s,'
-            else:
-                temp = '%s);'
-            query = query + temp
-            index += 1
-        with _rollback(self.conn) as _db:
-            _db.execute(query, data)
-
-    def select_from(self, sql: str) -> any:
+    def select_all(self, sql: str) -> any:
         query = 'SELECT * FROM {} '.format(sql)
 
         with _rollback(self.conn) as _db:
             _db.execute(query)
-            row = _db.fetchall()
-        return row
-
-    def select_columns(self, query: str, namedid: str):
-        with _rollback(self.conn) as _db:
-            _db.execute(query, (namedid,))
             row = _db.fetchall()
         return row
 

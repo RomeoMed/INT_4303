@@ -16,7 +16,7 @@ class Auth:
         self._user = User(email)
 
     def process_user(self, pwd: str):
-        logged_in, response, code = self._user.fetch_or_create_user(pwd)
+        logged_in, response, code = self._user.fetch_or_create_user_login(pwd)
         if logged_in:
             email = self._user.get_user_email()
             access_token = self._check_if_token_exists(email)
@@ -36,45 +36,45 @@ class Auth:
                 return 0, 'Unable to create access token', 500
         return logged_in, response, code
 
-    def _encode_auth_token(self, user: str) -> any:
-        self._logger.info('Creating new access token for: ' + user)
+    def _encode_auth_token(self, email: str) -> any:
+        self._logger.info('Creating new access token for: ' + email)
         try:
             payload = {
                 'exp': datetime.utcnow() + timedelta(days=1, seconds=0),
                 'iat': datetime.utcnow(),
-                'sub': user
+                'sub': email
             }
 
             token = jwt.encode(payload, self._secret['secret_key'], algorithm='HS256')
 
             if token:
                 self._logger.info('Inserting token in database')
-                sql = "INSERT INTO jwt_auth (user_id, token) VALUES(%s, %s)"
+                sql = "INSERT INTO jwt_auth (email, token) VALUES(%s, %s)"
                 with self._db as _db:
-                    _db.insert(sql, [user, token,])
+                    _db.insert(sql, [email, token,])
 
             return token
         except Exception as e:
             self._logger.error('ERROR---->unable to create new access token: ' + e)
             return None
 
-    def validate_token(self, token: any, user: str) -> any:
-        self._logger.info('Validating access token for: ' + user)
+    def validate_token(self, token: any, email: str) -> any:
+        self._logger.info('Validating access token for: ' + email)
         try:
             payload = jwt.decode(token, self._secret['secret_key'])
-            user_id = payload['sub']
-            if user_id != user:
-                self._logger.info('Unauthorized user: ' + user)
+            jwt_email = payload['sub']
+            if email != jwt_email:
+                self._logger.info('Unauthorized user: ' + email)
                 return 0, 'unauthorized'
             with self._db as _db:
                 sql = 'SELECT email FROM jwt_auth WHERE token = %s'
                 result = _db.select_with_params(sql, [token, ])
             if not result:
-                self._logger.info('No access token for user: ' + user)
+                self._logger.info('No access token for user: ' + email)
                 success = 0
                 message = 'no_token_stored'
-            elif result[0][0] != user_id:
-                self._logger.info('Unauthorized action for user: ' + user)
+            elif result[0][0] != email:
+                self._logger.info('Unauthorized action for user: ' + email)
                 message = 'unauthorized'
             else:
                 success = 1
@@ -83,10 +83,10 @@ class Auth:
             return success, message
 
         except jwt.ExpiredSignatureError:
-            self._logger.info('Access token signature expired for user: ' + user)
+            self._logger.info('Access token signature expired for user: ' + email)
             return 0, 'signature_expired.'
         except jwt.InvalidTokenError:
-            self._logger.info('Invalid access token for user: ' + user)
+            self._logger.info('Invalid access token for user: ' + email)
             return 0, 'invalid_token.'
 
     def _delete_token(self, token: str) -> None:

@@ -60,12 +60,7 @@ def intro():
         ttype, token = auth.split(' ')
         success, msg = Auth().validate_token(token, user)
 
-        if success:
-            content = Session(user).get_content()
-            if content:
-                return jsonify(content)
 
-    return jsonify({'error': 'something went wrong', 'status': 500})
 
 
 if __name__ == '__main__':

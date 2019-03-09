@@ -1,7 +1,7 @@
 from db import Database
 from encryption import AESCipher
-from auth import Auth
 import logging
+import json
 
 
 class User:
@@ -10,9 +10,10 @@ class User:
         self._email = email
         self._pwd = None
         self.cipher = AESCipher()
+        self.advisor = 0
         self._logger = logging.getLogger('progress_tracker_api')
 
-    def fetch_or_create_user(self, pwd: str):
+    def fetch_or_create_user_login(self, pwd: str):
         if not self._email or not pwd:
             self._logger.error('Missing User name or Password')
 
@@ -21,7 +22,7 @@ class User:
         exists = self._check_if_user_exists()
         if exists:
             self._user_id = exists
-            success, msg = self.fetch_user()
+            success, msg = self.fetch_user_login()
         else:
             success, msg = self.create_user()
 
@@ -39,7 +40,7 @@ class User:
         else:
             return 0
 
-    def fetch_user(self) -> any:
+    def fetch_user_login(self) -> any:
         self._logger.info('Fetching user: ' + self._email)
         with self._db as _db:
             sql = """SELECT password_hash, locked_out
@@ -63,7 +64,14 @@ class User:
         with Database() as _db:
             new_id = _db.insert(sql, [self._email, ])
         if new_id:
+            self.advisor, college_id = self.check_if_advisor_user()
             self._user_id = new_id
+            if self.advisor:
+                sql = """INSERT INTO advisor (id, college_id)
+                         VALUES(%s, %s)"""
+                with Database() as _db:
+                    _db.insert(sql, [new_id, college_id, ])
+
             sql = """INSERT INTO login (user_id, email, pwd_hash)
                      VALUES(%s, %s, %s)"""
             with Database() as _db:
@@ -76,3 +84,11 @@ class User:
 
     def get_user_email(self):
         return self._email
+
+    def check_if_advisor_user(self):
+        with open('avisors.json') as f:
+            data = json.load(f)
+        if data[self._email]:
+            college_id = data[self._email]['college_id']
+            return 1, college_id
+        return 0, None
