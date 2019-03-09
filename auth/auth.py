@@ -22,13 +22,13 @@ class Auth:
             access_token = self._check_if_token_exists(email)
 
             if access_token:
-                success, message = self.validate_token(access_token, email)
+                success, message, code = self.validate_token(access_token, email)
                 if success:
-                    return 1, access_token
+                    return 1, access_token, code
                 elif message == 'signature_expired' or message == 'invalid_token':
                     self._delete_token(self, access_token)
                 elif message == 'unauthorized':
-                    return 0, 'Forbodden'
+                    return 0, 'Forbidden - user/token mismatch', code
             new_token = self._encode_auth_token(email)
             if new_token:
                 return 1, new_token, 200
@@ -65,7 +65,9 @@ class Auth:
             jwt_email = payload['sub']
             if email != jwt_email:
                 self._logger.info('Unauthorized user: ' + email)
-                return 0, 'unauthorized'
+
+                return 0, 'unauthorized', 403
+
             with self._db as _db:
                 sql = 'SELECT email FROM jwt_auth WHERE token = %s'
                 result = _db.select_with_params(sql, [token, ])
@@ -73,14 +75,17 @@ class Auth:
                 self._logger.info('No access token for user: ' + email)
                 success = 0
                 message = 'no_token_stored'
+                code = None
             elif result[0][0] != email:
                 self._logger.info('Unauthorized action for user: ' + email)
                 message = 'unauthorized'
+                code = 403
             else:
                 success = 1
                 message = 'valid'
+                code = 200
 
-            return success, message
+            return success, message, code
 
         except jwt.ExpiredSignatureError:
             self._logger.info('Access token signature expired for user: ' + email)
@@ -94,7 +99,8 @@ class Auth:
         with self._db as _db:
             _db.delete(sql, [token, ])
 
-    def _check_if_token_exists(self, email: str) -> any:
+    @staticmethod
+    def _check_if_token_exists(email: str) -> any:
         sql = "SELECT token FROM jwt_auth WHERE email= %s"
         with Database() as _db:
             token = _db.select_with_params(sql, [email, ])

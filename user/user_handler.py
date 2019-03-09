@@ -92,3 +92,19 @@ class User:
             college_id = data[self._email]['college_id']
             return 1, college_id
         return 0, None
+
+    def get_user_role(self):
+        sql = """SELECT role FROM user WHERE email= %s"""
+        with Database() as _db:
+            result = _db.select_with_params(sql, [self._email])
+        return result[0][0]
+
+    def get_student_details(self, email: str):
+        sql = """SELECT id, last_update FROM user WHERE email=%s"""
+        with Database() as _db:
+            result = _db.select_with_params(sql, [email, ])
+        if not result[0][1]:
+            return 1, 'first_login', 200
+
+        self._user_id = result[0][0]
+        #TODO: Get all the user's data...
