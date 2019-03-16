@@ -27,27 +27,28 @@ def authenticate():
         abort(400)
     else:
         data = request.get_json()
+        test = request.get_data()
         user_email = data['user_email']
         password = data['password']
         auth = Auth(user_email)
         success, message, code = auth.process_user(password)
 
-        result = {
-            'success': success,
-            'code': code
-        }
-
         if code >= 400:
-            result['error'] = message
+            return _process_error_response(success, message, code)
         else:
-            result['access_token'] = message
+            result = {
+                'success': success,
+                'code': code,
+                'access_token': str(message)
+            }
+
         resp = _process_response(result, code)
 
     return resp
 
 
 @app.route("/progress-tracker/v1/getUserRole", methods=['POST'])
-def getUserRole():
+def get_user_role():
     if not request.is_json:
         abort(400)
 
@@ -56,16 +57,15 @@ def getUserRole():
     authorization = request.headers.get('Authorization')
     success, msg, code = _verify_access_token(user_email, authorization)
     if code >= 400:
-        result = {
-            "success": success,
-            "code": code,
-            "error": msg
-        }
-        resp = _process_response(result, code)
-
+        return _process_error_response(success, msg, code)
     else:
         user = User(user_email)
         role = user.get_user_role()
+        if role == 1:
+            role = 'Advisor'
+        else:
+            role = 'Student'
+
         result = {
             "user_role": role,
             "code": 200,
@@ -77,7 +77,7 @@ def getUserRole():
 
 
 @app.route("/progress-tracker/v1/getStudentDetails", methods=['POST'])
-def getStudentDetails():
+def get_student_details():
     if not request.is_json:
         abort(400)
     else:
@@ -86,20 +86,32 @@ def getStudentDetails():
         authorization = request.headers.get('Authorization')
         success, msg, code = _verify_access_token(user_email, authorization)
         if code >= 400:
-            result = {
-                "success": success,
-                "code": code,
-                "error": msg
-            }
-            resp = _process_response(result, code)
+            return _process_error_response(success, msg, code)
         else:
             user = User(user_email)
             user_details = user.get_student_details()
+            print('incomplete')
 
 
 def _process_response(result: any, code: int) -> any:
     resp = app.response_class(
         response=json.dumps(result),
+        status=code,
+        mimetype='application/json'
+    )
+    resp.headers['Content-Type'] = 'application/json;charset=UTF-8'
+
+    return resp
+
+
+def _process_error_response(success: int, msg: str, code: int) -> any:
+    result = {
+        "success": success,
+        "code": code,
+        "error": msg
+    }
+    resp = app.response_class(
+        response=json.dump(result),
         status=code,
         mimetype='application/json'
     )
@@ -116,4 +128,5 @@ def _verify_access_token(user_email: str, authorization: str):
 
 if __name__ == '__main__':
    # _logger.info('Server is Listening.....')
+    app.secret_key = 'f3cfe9ed8fae309f02079dbf'
     app.run(debug=True)

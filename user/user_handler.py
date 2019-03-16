@@ -28,10 +28,10 @@ class User:
 
         if not success:
             return success, 'Forbidden- ' + msg, 403
-        return 1, 'success'
+        return 1, 'success', 200
 
     def _check_if_user_exists(self) -> int:
-        sql = """SELECT id FROM users WHERE email = %s"""
+        sql = """SELECT user_id FROM user WHERE email = %s"""
 
         with Database() as _db:
             user_id = _db.select_with_params(sql, [self._email, ])
@@ -42,16 +42,13 @@ class User:
 
     def fetch_user_login(self) -> any:
         self._logger.info('Fetching user: ' + self._email)
-        with self._db as _db:
-            sql = """SELECT password_hash, locked_out
-                             FROM login WHERE user_id = %s"""
-            result = _db.select_with_params(sql, [self._user_id, ])
-        decrypted_pwd = self.cipher.decrypt(result[0][1])
+        with Database() as _db:
+            sql = """SELECT pwd_hash FROM login WHERE email = %s"""
+            result = _db.select_with_params(sql, [self._email, ])
+        decrypted_pwd = self.cipher.decrypt(result[0][0])
 
         if decrypted_pwd != self._pwd:
             return 0, 'invalid_password'
-        elif result[0][2]:
-            return 0, 'locked_out'
         else:
             return 1, 'success'
 
@@ -94,7 +91,7 @@ class User:
         return 0, None
 
     def get_user_role(self):
-        sql = """SELECT role FROM user WHERE email= %s"""
+        sql = """SELECT advisor FROM user WHERE email= %s"""
         with Database() as _db:
             result = _db.select_with_params(sql, [self._email])
         return result[0][0]
@@ -103,8 +100,10 @@ class User:
         sql = """SELECT id, last_update FROM user WHERE email=%s"""
         with Database() as _db:
             result = _db.select_with_params(sql, [email, ])
+        self._user_id = result[0][0]
         if not result[0][1]:
             return 1, 'first_login', 200
-
-        self._user_id = result[0][0]
-        #TODO: Get all the user's data...
+        else:
+            sql = """SELECT id, """
+            #TODO: Get all the user's data...
+            return 'stuff'

@@ -1,8 +1,8 @@
 import base64
 import hashlib
 import json
-from crypto import Random
-from crypto.Cipher import AES
+from Crypto import Random
+from Crypto.Cipher import AES
 
 
 with open('secret.json') as shh:
@@ -20,7 +20,7 @@ class AESCipher(object):
         iv = Random.new().read(AES.block_size)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
 
-        return base64.b64encode(iv + cipher.encrypt(plaintext))
+        return str(base64.b64encode(iv + cipher.encrypt(plaintext.encode('utf-8'))))
 
     def decrypt(self, encrypted: str):
         encrypted = base64.b64decode(encrypted)
@@ -35,3 +35,10 @@ class AESCipher(object):
     @staticmethod
     def _unpad(s):
         return s[:-ord(s[len(s)-1:])]
+
+if __name__ == '__main__':
+    cipher = AESCipher()
+    encrypted = cipher.encrypt('Testing1')
+    print(encrypted)
+    decrypted = cipher.decrypt(encrypted)
+    print(decrypted)

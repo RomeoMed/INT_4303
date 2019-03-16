@@ -45,12 +45,12 @@ class Auth:
                 'sub': email
             }
 
-            token = jwt.encode(payload, self._secret['secret_key'], algorithm='HS256')
+            token = jwt.encode(payload, _key, algorithm='HS256')
 
             if token:
                 self._logger.info('Inserting token in database')
                 sql = "INSERT INTO jwt_auth (email, token) VALUES(%s, %s)"
-                with self._db as _db:
+                with Database() as _db:
                     _db.insert(sql, [email, token,])
 
             return token
@@ -61,14 +61,14 @@ class Auth:
     def validate_token(self, token: any, email: str) -> any:
         self._logger.info('Validating access token for: ' + email)
         try:
-            payload = jwt.decode(token, self._secret['secret_key'])
+            payload = jwt.decode(token, _key)
             jwt_email = payload['sub']
             if email != jwt_email:
                 self._logger.info('Unauthorized user: ' + email)
 
                 return 0, 'unauthorized', 403
 
-            with self._db as _db:
+            with Database() as _db:
                 sql = 'SELECT email FROM jwt_auth WHERE token = %s'
                 result = _db.select_with_params(sql, [token, ])
             if not result:
@@ -96,7 +96,7 @@ class Auth:
 
     def _delete_token(self, token: str) -> None:
         sql = "DELETE FROM jwt_auth WHERE token= %s"
-        with self._db as _db:
+        with Database() as _db:
             _db.delete(sql, [token, ])
 
     @staticmethod
