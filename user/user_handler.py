@@ -13,24 +13,29 @@ class User:
         self.advisor = 0
         self._logger = logging.getLogger('progress_tracker_api')
 
-    def fetch_or_create_user_login(self, pwd: str):
-        if not self._email or not pwd:
-            self._logger.error('Missing User name or Password')
-
-            return 0, 'Forbidden -Invalid credentials', 403
+    def login(self, pwd: str):
         self._pwd = pwd
-        exists = self._check_if_user_exists()
-        if exists:
-            self._user_id = exists
-            success, msg = self.fetch_user_login()
-        else:
-            success, msg = self.create_user()
+        user_id = self._fetch_user_id()
+        if not user_id:
+            return 0, 'Unauthorized- Invalid username', 401
+
+        self._user_id = user_id
+        success, msg = self.fetch_user_login()
 
         if not success:
             return success, 'Forbidden- ' + msg, 403
-        return 1, 'success', 200
+        return success, 'success', 200
 
-    def _check_if_user_exists(self) -> int:
+    def sign_up(self, pwd: str):
+        self._pwd = pwd
+        exists = self.check_if_user_exists()
+
+        if exists:
+            return 0, 'Account already exists for this email', 200
+
+        return self.create_user()
+
+    def _fetch_user_id(self) -> int:
         sql = """SELECT user_id FROM user WHERE email = %s"""
 
         with Database() as _db:
@@ -41,10 +46,11 @@ class User:
             return 0
 
     def fetch_user_login(self) -> any:
-        self._logger.info('Fetching user: ' + self._email)
+        self._logger.info('Fetching user login: ' + self._email)
         with Database() as _db:
             sql = """SELECT pwd_hash FROM login WHERE email = %s"""
             result = _db.select_with_params(sql, [self._email, ])
+
         decrypted_pwd = self.cipher.decrypt(result[0][0])
 
         if decrypted_pwd != self._pwd:
@@ -59,22 +65,29 @@ class User:
         sql = """INSERT INTO users (email) 
                  VALUES(%s)"""
         with Database() as _db:
-            new_id = _db.insert(sql, [self._email, ])
+            new_id = _db.execute_sql(sql, [self._email, ])
         if new_id:
             self.advisor, college_id = self.check_if_advisor_user()
             self._user_id = new_id
             if self.advisor:
                 sql = """INSERT INTO advisor (id, college_id)
                          VALUES(%s, %s)"""
-                with Database() as _db:
-                    _db.insert(sql, [new_id, college_id, ])
+                params = [new_id, college_id,]
+            else:
+                sql = """INSERT INTO student (id)
+                         VALUES(%s)"""
+                params = [new_id,]
+            with Database() as _db:
+                _db.execute_sql(sql, params)
 
             sql = """INSERT INTO login (user_id, email, pwd_hash)
                      VALUES(%s, %s, %s)"""
             with Database() as _db:
-                _db.insert(sql, [new_id, self._email, encrypted_pwd])
-            return 1, 'success'
-        return 0, 'unable_to_create_user'
+                _db.execute_sql(sql, [new_id, self._email, encrypted_pwd])
+
+            return 1, 'success', 200
+
+        return 0, 'Internal server error: unable to create user', 500
 
     def get_user_id(self):
         return self._user_id
@@ -97,13 +110,32 @@ class User:
         return result[0][0]
 
     def get_student_details(self, email: str):
-        sql = """SELECT id, last_update FROM user WHERE email=%s"""
-        with Database() as _db:
-            result = _db.select_with_params(sql, [email, ])
-        self._user_id = result[0][0]
-        if not result[0][1]:
-            return 1, 'first_login', 200
+        first_login = self.is_first_login()
+
+        if first_login:
+            return 0, 'details_form', 200
         else:
-            sql = """SELECT id, """
-            #TODO: Get all the user's data...
-            return 'stuff'
+            return self.get_details()
+
+    def get_details(self):
+        #TODO: sql to get details
+        return 'stuff'
+
+    def check_if_user_exists(self)-> bool:
+        sql = """SELECT id FROM user WHERE email=%s"""
+        with Database() as _db:
+            result = _db.select_with_params(sql, [self._email, ])
+        if result[0][0]:
+            return True
+        return False
+
+    def is_first_login(self) -> bool:
+        sql = """SELECT last_updated FROM student
+                 WHERE user_id=%s"""
+        with Database() as _db:
+            result = _db.select_with_params(sql, [self._user_id, ])
+        if result[0][0]:
+            return False
+        else:
+            return True
+

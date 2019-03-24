@@ -1,6 +1,7 @@
 import jwt
 import json
 import logging
+import base64
 from db import Database
 from datetime import datetime, timedelta
 from user import User
@@ -13,30 +14,45 @@ _key = _secret.get('secret_key')
 class Auth:
     def __init__(self, email: str):
         self._logger = logging.getLogger("progress_tracker_api")
+        self._email = email
         self._user = User(email)
 
-    def process_user(self, pwd: str):
-        logged_in, response, code = self._user.fetch_or_create_user_login(pwd)
-        if logged_in:
-            email = self._user.get_user_email()
-            access_token = self._check_if_token_exists(email)
+    def process_user_login(self, pwd: str):
+        if not self._email or not pwd:
+            return 0, 'Bad Request: missing email or password', 400
+        logged_in, response, code = self._user.login(pwd)
 
-            if access_token:
-                success, message, code = self.validate_token(access_token, email)
-                if success:
-                    return 1, access_token, code
-                elif message == 'signature_expired' or message == 'invalid_token':
-                    self._delete_token(self, access_token)
-                elif message == 'unauthorized':
-                    return 0, 'Forbidden - user/token mismatch', code
-            new_token = self._encode_auth_token(email)
-            if new_token:
-                return 1, new_token, 200
-            else:
-                return 0, 'Unable to create access token', 500
-        return logged_in, response, code
+        if  not logged_in:
+            return 0, response, code
+        token = self._check_if_token_exists(self._email)
 
-    def _encode_auth_token(self, email: str) -> any:
+        if token:
+            success, message, code = self.validate_token(token, self._email)
+
+            if success:
+                return 1, token, code
+            elif message == 'unauthorized' or message == 'invalid_token':
+                return 0, 'Forbidden - user/token mismatch or invalid token', code
+            elif message == 'signature_expired':
+                return self._refresh_token(token)
+        else:
+            return self._encode_auth_token(self._email, False)
+
+    def process_user_signup(self, pwd: str):
+        if not self._email or not pwd:
+            return 0, 'Bad Request: missing email or password', 400
+        pwd = base64.decode(pwd)
+        success, response, code = self._user.sign_up(pwd)
+
+        if not success:
+            return 0, response, code
+        return self._encode_auth_token(self._email, False)
+
+    def _refresh_token(self, token):
+        self._delete_token(token)
+        return self._encode_auth_token(self._email, True)
+
+    def _encode_auth_token(self, email: str, refresh: bool) -> any:
         self._logger.info('Creating new access token for: ' + email)
         try:
             payload = {
@@ -48,15 +64,22 @@ class Auth:
             token = jwt.encode(payload, _key, algorithm='HS256')
 
             if token:
-                self._logger.info('Inserting token in database')
-                sql = "INSERT INTO jwt_auth (email, token) VALUES(%s, %s)"
+                if not refresh:
+                    self._logger.info('Inserting token in database')
+                    sql = "INSERT INTO jwt_auth (token, email) VALUES(%s, %s)"
+                else:
+                    self._logger.info("Refreshing DB token")
+                    sql = "UPDATE jwt_auth SET token = ? WHERE email= %s"
                 with Database() as _db:
-                    _db.insert(sql, [email, token,])
+                    _db.execute_sql(sql, [token, email, ])
 
-            return token
+                return 1, token, 200
+            else:
+                return 0, 'Unable to create access token', 500
+
         except Exception as e:
             self._logger.error('ERROR---->unable to create new access token: ' + e)
-            return None
+            return 0, e, 500
 
     def validate_token(self, token: any, email: str) -> any:
         self._logger.info('Validating access token for: ' + email)
@@ -89,12 +112,13 @@ class Auth:
 
         except jwt.ExpiredSignatureError:
             self._logger.info('Access token signature expired for user: ' + email)
-            return 0, 'signature_expired.'
+            return 0, 'signature_expired', 400
         except jwt.InvalidTokenError:
             self._logger.info('Invalid access token for user: ' + email)
-            return 0, 'invalid_token.'
+            return 0, 'invalid_token', 400
 
-    def _delete_token(self, token: str) -> None:
+    @staticmethod
+    def _delete_token(token: str) -> None:
         sql = "DELETE FROM jwt_auth WHERE token= %s"
         with Database() as _db:
             _db.delete(sql, [token, ])

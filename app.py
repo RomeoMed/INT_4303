@@ -19,19 +19,48 @@ _logger.addHandler(handler)
 app = Flask(__name__)
 
 
-@app.route("/progress-tracker/v1/authenticate", methods=['POST'])
-def authenticate():
-    _logger.info('Authentication request')
+@app.route("/progress-tracker/v1/signInGate", methods=['POST'])
+def sign_in_gate():
+    _logger.info('User Sign in request')
+
     if not request.is_json:
         _logger.info('ERROR---->Invalid request body')
         abort(400)
     else:
         data = request.get_json()
-        test = request.get_data()
+        user_email = data.get('user_email')
+        password = data.get('password')
+        auth = Auth(user_email)
+        success, message, code = auth.process_user_login(password)
+
+        if code >= 400:
+            return _process_error_response(success, message, code)
+        else:
+            result = {
+                'success': success,
+                'code': code,
+                'access_token': str(message)
+            }
+
+        resp = _process_response(result, code)
+
+    return resp
+
+
+@app.route('/progress-tracker/v1/signUpGate', methods=["POST"])
+def sign_up_gate():
+    _logger.info('User sign up request')
+    if not request.is_json:
+        _logger.info('ERROR---->Invalid request body')
+        abort(400)
+    else:
+        auth =  request.headers.get('Authorization')
+        print('request = ' + request)
+        data = request.get_json()
         user_email = data['user_email']
         password = data['password']
         auth = Auth(user_email)
-        success, message, code = auth.process_user(password)
+        success, message, code = auth.process_user_signup(password)
 
         if code >= 400:
             return _process_error_response(success, message, code)
@@ -111,7 +140,7 @@ def _process_error_response(success: int, msg: str, code: int) -> any:
         "error": msg
     }
     resp = app.response_class(
-        response=json.dump(result),
+        response=json.dumps(result),
         status=code,
         mimetype='application/json'
     )

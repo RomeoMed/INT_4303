@@ -77,7 +77,7 @@ class Database(object):
 
     @retry(retry_on_exception=retry_on_dberror, stop_max_delay=600000,
            wait_exponential_multiplier=1000, wait_exponential_max=10000)
-    def insert(self, sql: str, data: any):
+    def execute_sql(self, sql: str, data: any):
         with _rollback(self.conn) as _db:
             _db.execute(sql, data)
             new_id = _db.lastrowid
