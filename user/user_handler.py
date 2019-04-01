@@ -14,26 +14,29 @@ class User:
         self._logger = logging.getLogger('progress_tracker_api')
 
     def login(self, pwd: str):
-        self._pwd = pwd
-        user_id = self._fetch_user_id()
-        if not user_id:
-            return 0, 'Unauthorized- Invalid username', 401
+        try:
+            self._pwd = pwd
+            user_id = self._fetch_user_id()
+            if not user_id:
+                return 0, 'Unauthorized- Invalid username', 401
 
-        self._user_id = user_id
-        success, msg = self.fetch_user_login()
+            self._user_id = user_id
+            success, msg = self.fetch_user_login()
 
-        if not success:
-            return success, 'Forbidden- ' + msg, 403
-        return success, 'success', 200
+            if not success:
+                return success, 'Forbidden- ' + msg, 403
+            return success, 'success', 200
+        except Exception as e:
+            return 0, 'Internal Server Error: Please Come Back Later', 500
 
-    def sign_up(self, pwd: str):
+    def sign_up(self, pwd: str, firstname: str, lastname: str):
         self._pwd = pwd
         exists = self.check_if_user_exists()
 
         if exists:
             return 0, 'Account already exists for this email', 200
 
-        return self.create_user()
+        return self.create_user(firstname, lastname)
 
     def _fetch_user_id(self) -> int:
         sql = """SELECT user_id FROM user WHERE email = %s"""
@@ -58,36 +61,44 @@ class User:
         else:
             return 1, 'success'
 
-    def create_user(self):
-        self._logger.info('Creating new user: ' + self._email)
-        encrypted_pwd = self.cipher.encrypt(self._pwd)
-
-        sql = """INSERT INTO users (email) 
-                 VALUES(%s)"""
-        with Database() as _db:
-            new_id = _db.execute_sql(sql, [self._email, ])
-        if new_id:
-            self.advisor, college_id = self.check_if_advisor_user()
-            self._user_id = new_id
-            if self.advisor:
-                sql = """INSERT INTO advisor (id, college_id)
-                         VALUES(%s, %s)"""
-                params = [new_id, college_id,]
-            else:
-                sql = """INSERT INTO student (id)
-                         VALUES(%s)"""
-                params = [new_id,]
+    def create_user(self, firstname: str, lastname: str):
+        try:
             with Database() as _db:
-                _db.execute_sql(sql, params)
+                self._logger.info('Creating new user: ' + self._email)
+                encrypted_pwd = self.cipher.encrypt(self._pwd)
+                self.advisor, college_id = self.check_if_advisor_user()
+                advisor_user = 0
 
-            sql = """INSERT INTO login (user_id, email, pwd_hash)
-                     VALUES(%s, %s, %s)"""
-            with Database() as _db:
-                _db.execute_sql(sql, [new_id, self._email, encrypted_pwd])
+                if self.advisor:
+                    advisor_user = 1
+                sql = """INSERT INTO user (email, advisor, first_name, last_name) 
+                        VALUES(%s, %s, %s, %s)"""
 
-            return 1, 'success', 200
+                new_id = _db.execute_sql(sql, [self._email, advisor_user, firstname, lastname, ])
 
-        return 0, 'Internal server error: unable to create user', 500
+                if new_id:
+                    self._user_id = new_id
+
+                    if self.advisor:
+                        sql = """INSERT INTO advisor (user_id, college_id)
+                                VALUES(%s, %s)"""
+                        params = [new_id, college_id, ]
+                    else:
+                        sql = """INSERT INTO student (user_id)
+                                VALUES(%s)"""
+                        params = [new_id, ]
+
+                    _db.execute_sql(sql, params)
+
+                    sql = """INSERT INTO login (user_id, email, pwd_hash)
+                            VALUES(%s, %s, %s)"""
+                    _db.execute_sql(sql, [new_id, self._email, encrypted_pwd])
+
+                    return 1, 'success', 200
+
+                return 0, 'Internal server error: unable to create user', 500
+        except Exception as e:
+            return 0, 'Internal Server Error: Unable to create user', 500
 
     def get_user_id(self):
         return self._user_id
@@ -96,15 +107,16 @@ class User:
         return self._email
 
     def check_if_advisor_user(self):
-        with open('avisors.json') as f:
+        email = self._email.lower()
+        with open('advisors.json') as f:
             data = json.load(f)
-        if data[self._email]:
-            college_id = data[self._email]['college_id']
+        if email in data:
+            college_id = data[email]
             return 1, college_id
         return 0, None
 
     def get_user_role(self):
-        sql = """SELECT advisor FROM user WHERE email= %s"""
+        sql = """SELECT advisor FROM user WHERE email=%s"""
         with Database() as _db:
             result = _db.select_with_params(sql, [self._email])
         return result[0][0]
@@ -118,14 +130,14 @@ class User:
             return self.get_details()
 
     def get_details(self):
-        #TODO: sql to get details
+        # TODO: sql to get details
         return 'stuff'
 
-    def check_if_user_exists(self)-> bool:
-        sql = """SELECT id FROM user WHERE email=%s"""
+    def check_if_user_exists(self) -> bool:
+        sql = """SELECT user_id FROM user WHERE email=%s"""
         with Database() as _db:
             result = _db.select_with_params(sql, [self._email, ])
-        if result[0][0]:
+        if result:
             return True
         return False
 
@@ -139,3 +151,5 @@ class User:
         else:
             return True
 
+    def get_all_coursed(self, program_id: str):
+        sql =
