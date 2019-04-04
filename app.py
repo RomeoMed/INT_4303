@@ -128,9 +128,14 @@ def get_program_courses():
         if code >= 400:
             return _process_error_response(success, msg, code)
         else:
-            program_id = data['major']
+            program = data['major']
             user = User(user_email)
-            success, msg, course_obj = user.get_all_courses
+            prog_id = user.get_program_id(program)
+            success, course_obj = user.get_all_courses(prog_id)
+
+            if success:
+                return _process_response(course_obj, 200)
+
 
 @app.route("/progress-tracker/v1/getStudentDetails", methods=['POST'])
 def get_student_details():
@@ -167,6 +172,24 @@ def check_email_exists(email):
         "exists": response
     }
     return _process_response(result, 200)
+
+
+@app.route("/progress-tracker/v1/initialCourseIntake/<path:email>", methods=['POST'])
+def initial_course_intake(email):
+    user = User(email)
+    authorization = request.headers.get('Authorization')
+    success, msg, code = _verify_headers(email, authorization)
+
+    if not success:
+        return _process_error_response(success, msg, code)
+    elif not request.is_json:
+        abort(400)
+    else:
+        data = request.get_json()
+        success, msg, code = user.initial_update_schedule(data)
+
+        return _process_response({"success": 1, "message": msg, "code": code}, code)
+
 
 
 def _process_response(result: any, code: int) -> any:

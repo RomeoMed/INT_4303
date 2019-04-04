@@ -151,5 +151,51 @@ class User:
         else:
             return True
 
-    def get_all_coursed(self, program_id: str):
-        sql =
+    def get_program_id(self, degree: str):
+        sql = "SELECT degree_prog_id FROM degree_prog WHERE program_code=%s"
+        with Database() as _db:
+            prog_id = _db.select_with_params(sql, [degree, ])
+        return prog_id[0][0]
+
+    def get_all_courses(self, program_id: str):
+        sql = """SELECT c.course_id,
+                    c.course_number,
+                    c.course_name
+                 FROM degree_req dr
+                    JOIN course c
+                        ON c.course_id = dr.course_id
+                 WHERE dr.degree_prog_id = %s;"""
+        with Database() as _db:
+            result = _db.select_with_params(sql, [program_id, ])
+        return_obj = []
+        if result:
+            for res in result:
+                tmp_obj = {
+                    "course_id": res[0],
+                    "course_number": res[1],
+                    "course_name": res[2]
+                }
+                return_obj.append(tmp_obj)
+            return 1, return_obj
+
+    def initial_update_schedule(self, data: any):
+        try:
+            user_id = self._fetch_user_id()
+
+            sql = """INSERT INTO student_sched (user_id, class_id, course_code,
+                        approved, class_status)
+                     VALUES(%s,%s,%s,%s,%s)"""
+
+            with Database() as _db:
+                for item in data:
+                    class_id = item.get('course_id')
+                    course_code = item.get('value')
+                    approval_status = 1
+                    class_status = 'complete'
+
+                    _db.execute_sql(sql, [user_id, class_id, course_code,
+                                          approval_status, class_status, ])
+
+            return 1, 'Success', 201
+        except:
+            return 0, 'Internal Server Error', 500
