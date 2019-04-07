@@ -1,5 +1,6 @@
 from db import Database
 from encryption import AESCipher
+from datetime import datetime
 import logging
 import json
 
@@ -199,3 +200,104 @@ class User:
             return 1, 'Success', 201
         except:
             return 0, 'Internal Server Error', 500
+
+    def update_student_details(self, prog_id: str, advisor: str):
+        try:
+            advisor_id = self._get_advisor_id(advisor)
+            sql = """UPDATE student SET
+                        degree_program_id= %s, advisor_id= %s, last_updated= %s 
+                      WHERE user_id = %s"""
+            student_id = self._fetch_user_id()
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            with Database() as _db:
+                _db.execute_sql(sql, [prog_id, advisor_id, now, student_id])
+            return 1
+        except:
+            return 0
+
+    def _get_advisor_id(self, email: str):
+        sql = "SELECT user_id FROM user WHERE email= %s"
+        with Database() as _db:
+            result = _db.select_with_params(sql, [email, ])
+
+        if result:
+            return result[0][0]
+        else:
+            return None
+
+    def get_current_flowchart(self):
+        user_id = self._fetch_user_id()
+        degree_prog = self._get_student_degree_prog(user_id)
+        success, data, code = self._get_student_progress(user_id, degree_prog)
+
+        return success, data, code
+
+    def _get_student_progress(self, user_id: str, degree_prog: str):
+        sql = """SELECT c.course_id,
+                    c.course_number,
+                    c.course_name,
+                    c.credits,
+                    IFNULL(s.course_code,'None'),
+                    IFNULL(s.approved,'1'),
+                    IFNULL(s.class_status,'required')
+                from degree_req dr
+                JOIN course c
+                    ON c.course_id = dr.course_id
+                LEFT JOIN student_sched s
+                    ON s.class_id = c.course_id 
+                WHERE dr.degree_prog_id = %s
+                    AND s.user_id= %s"""
+        try:
+            with Database() as _db:
+                result = _db.select_with_params(sql, [degree_prog, user_id, ])
+            if result:
+                result = self._update_result(result)
+                return 1, result, 200
+            return 0, 'Unable to complete request', 500
+        except:
+            return 0, 'Unable to complete request', 500
+
+    def _get_student_degree_prog(self, user_id: str):
+        sql = """SELECT degree_program_id FROM student
+                  WHERE user_id= %s"""
+
+        try:
+            with Database() as _db:
+                result = _db.select_with_params(sql, [user_id, ])
+            if result:
+                return result[0][0]
+            else:
+                return None
+        except:
+            return None
+
+    def _update_result(self, result: any):
+        tmp_list = []
+        return_list = []
+        for res in result:
+            if res[4]:
+                if res[4] in tmp_list:
+                    course_code = None
+                    approved = 0
+                    class_status = 'required'
+                else:
+                    course_code = res[4]
+                    tmp_list.append(res[4])
+                    approved = 1
+                    class_status = res[6] if res[6] else 'complete'
+            else:
+                course_code = res[4]
+                approved = res[5] if res[5] else 0
+                class_status = res[6] if res[6] else 'required'
+            data_dict = {
+                'course_id': res[0],
+                'course_number': res[1],
+                'course_name': res[2],
+                'credits': res[3],
+                'course_code': course_code,
+                'approved': approved,
+                'class_status': class_status
+            }
+            return_list.append(data_dict)
+        return return_list

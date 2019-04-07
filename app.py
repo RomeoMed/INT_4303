@@ -3,7 +3,6 @@ import json
 from logging.handlers import RotatingFileHandler
 from flask import Flask, request, abort
 #from flask_cors import CORS
-#from session import Session
 from auth import Auth
 from user import User
 
@@ -129,8 +128,10 @@ def get_program_courses():
             return _process_error_response(success, msg, code)
         else:
             program = data['major']
+            advisor = data['advisor']
             user = User(user_email)
             prog_id = user.get_program_id(program)
+            success = user.update_student_details(prog_id, advisor)
             success, course_obj = user.get_all_courses(prog_id)
 
             if success:
@@ -190,6 +191,22 @@ def initial_course_intake(email):
 
         return _process_response({"success": 1, "message": msg, "code": code}, code)
 
+
+@app.route('/progress-tracker/v1/getFlowchartData/<path:email>', methods=['POST'])
+def get_flowchart_data(email):
+    user = User(email)
+    authorization = request.headers.get('Authorization')
+    success, msg, code = _verify_headers(email, authorization)
+
+    if not success:
+        return _process_error_response(success, msg, code)
+
+    success, data, code = user.get_current_flowchart()
+
+    if not success:
+        return _process_error_response(success, data, code)
+    else:
+        return _process_response(data, code)
 
 
 def _process_response(result: any, code: int) -> any:

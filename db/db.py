@@ -9,6 +9,8 @@ import logging
 
 
 _logger = logging.getLogger("FinalProjectApp")
+
+
 def retry_on_dberror(exception: Exception) -> bool:
     _logger.info("********retry_on_dberror")
     """ Used in the retrying decorator to retry queries if there is a database error.
@@ -102,10 +104,9 @@ class Database(object):
         return result
 
     def select_with_params(self, query: str, params: any) -> any:
-
         with _rollback(self.conn) as _db:
             _db.execute(query, params)
-            result = _db.fetchall()
+        result = _db.fetchall()
         return result
 
     # noinspection PyUnusedLocal,PyUnusedLocal

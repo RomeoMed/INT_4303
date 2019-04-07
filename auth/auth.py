@@ -1,9 +1,6 @@
-import jwt
 import json
 import logging
 import base64
-from db import Database
-from datetime import datetime, timedelta
 from user import User
 
 with open('secret.json') as shh:
