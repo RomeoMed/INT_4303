@@ -1,6 +1,5 @@
 db_configs.json
 secret.json
-advisors.json
 .idea
 *.swp
 *.swo
