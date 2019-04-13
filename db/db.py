@@ -109,6 +109,37 @@ class Database(object):
         result = _db.fetchall()
         return result
 
+    def select_into_list(self, query: str, params: any) -> any:
+        return_list = []
+        with _rollback(self.conn) as _db:
+            _db.execute(query, params)
+        result = _db.fetchall()
+
+        for res in result:
+            count = len(res)
+            counter = 1
+            tmp_list = []
+            while counter <= count:
+                tmp_list.append(res[counter - 1])
+                counter += 1
+            return_list.append(tmp_list)
+
+        return return_list
+
+    def select_no_params(self, query: str) -> any:
+        with _rollback(self.conn) as _db:
+            _db.execute(query)
+        result = _db.fetchall()
+        return self.convert_to_list(result)
+
+    def convert_to_list(self, result) -> any:
+        ret_list = []
+        for res in result:
+            tmp_list = []
+            for i in res:
+                tmp_list.append(i)
+            ret_list.append(tmp_list)
+        return ret_list
     # noinspection PyUnusedLocal,PyUnusedLocal
     def __exit__(self, ttype, value, traceback) -> None:
         """ Context manager exit. Commits transaction.

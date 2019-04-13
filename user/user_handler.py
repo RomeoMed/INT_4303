@@ -234,29 +234,79 @@ class User:
         return success, data, code
 
     def _get_student_progress(self, user_id: str, degree_prog: str):
-        sql = """SELECT c.course_id,
+        sql = """
+                 select
+                    d.course_id,
                     c.course_number,
                     c.course_name,
-                    c.credits,
-                    IFNULL(s.course_code,'None'),
-                    IFNULL(s.approved,'1'),
-                    IFNULL(s.class_status,'required')
-                from degree_req dr
-                JOIN course c
-                    ON c.course_id = dr.course_id
-                LEFT JOIN student_sched s
-                    ON s.class_id = c.course_id 
-                WHERE dr.degree_prog_id = %s
-                    AND s.user_id= %s"""
-        try:
-            with Database() as _db:
-                result = _db.select_with_params(sql, [degree_prog, user_id, ])
-            if result:
-                result = self._update_result(result)
-                return 1, result, 200
-            return 0, 'Unable to complete request', 500
-        except:
-            return 0, 'Unable to complete request', 500
+                    c.credits
+                 from degree_req d
+                 join course c
+                    on d.course_id = c.course_id
+                where d.degree_prog_id = %s
+                """
+        with Database() as _db:
+            courses = _db.select_into_list(sql, [degree_prog,])
+
+            sql = """SELECT
+                        s.class_id,
+                        s.course_code,
+                        s.approved,
+                        s.class_status
+                      FROM student_sched s
+                      WHERE s.user_id = %s;
+                    """
+            schedule = _db.select_into_list(sql, [user_id,])
+
+        return_obj = self.process_flowchart_results(courses, schedule)
+
+        return 1, return_obj, 200
+
+    def process_flowchart_results(self, courses: list, schedule: list):
+        return_list = []
+        tmp_list = []
+
+        for item in schedule:
+            tmp_list.append(item[0])
+
+        index = 0
+        for course in courses:
+            course_id = course[0]
+            course_num = course[1]
+            course_name = course[2]
+            credits = course[3]
+            approved = 0
+            class_status = 'required'
+
+            if course_id in tmp_list:
+                sched_index = 0
+                for cls in schedule:
+                    if cls and cls[0] == course_id:
+                        course_num = cls[1]
+                        approved = cls[2]
+                        class_status = cls[3]
+                        sched_index += 1
+                        del schedule[sched_index]
+                        cls.clear()
+                        break
+
+                tmp_list.remove(course_id)
+                #del courses[index]
+
+            return_list.append(
+                {
+                    'course_id': course_id,
+                    'course_number': course_num,
+                    'credits': credits,
+                    'course_name': course_name,
+                    'class_status': class_status,
+                    'approved': approved
+                }
+            )
+
+            index += 1
+
+        return return_list
 
     def _get_student_degree_prog(self, user_id: str):
         sql = """SELECT degree_program_id FROM student
@@ -301,3 +351,13 @@ class User:
             }
             return_list.append(data_dict)
         return return_list
+
+    def _update_value(self, value):
+        print(type(value))
+        if type(value) is list \
+                or type(value) is tuple:
+            return value[0]
+        else:
+            return value
+
+
