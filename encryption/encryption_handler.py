@@ -23,6 +23,8 @@ class AESCipher(object):
         return str(base64.b64encode(iv + cipher.encrypt(plaintext.encode('utf-8'))))
 
     def decrypt(self, encrypted: str):
+        encrypted = encrypted.encode('utf-8').decode('utf-8')
+        encrypted = eval(encrypted)
         encrypted = base64.b64decode(encrypted)
         iv = encrypted[:AES.block_size]
         cipher = AES.new(self.key, AES.MODE_CBC, iv)

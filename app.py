@@ -92,7 +92,7 @@ def get_user_role():
         abort(400)
 
     data = request.get_json()
-    user_email = data.get('user_email')
+    user_email = data['user_email']
     authorization = request.headers.get('Authorization')
     success, msg, code = _verify_headers(user_email, authorization)
     if not success:

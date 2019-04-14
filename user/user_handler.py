@@ -246,7 +246,7 @@ class User:
                 where d.degree_prog_id = %s
                 """
         with Database() as _db:
-            courses = _db.select_into_list(sql, [degree_prog,])
+            courses = _db.select_into_list(sql, [degree_prog, ])
 
             sql = """SELECT
                         s.class_id,
@@ -256,7 +256,7 @@ class User:
                       FROM student_sched s
                       WHERE s.user_id = %s;
                     """
-            schedule = _db.select_into_list(sql, [user_id,])
+            schedule = _db.select_into_list(sql, [user_id, ])
 
         return_obj = self.process_flowchart_results(courses, schedule)
 
@@ -286,12 +286,11 @@ class User:
                         approved = cls[2]
                         class_status = cls[3]
                         sched_index += 1
-                        del schedule[sched_index]
                         cls.clear()
                         break
 
                 tmp_list.remove(course_id)
-                #del courses[index]
+                # del courses[index]
 
             return_list.append(
                 {
@@ -359,5 +358,3 @@ class User:
             return value[0]
         else:
             return value
-
-
