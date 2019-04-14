@@ -216,10 +216,15 @@ class User:
         except:
             return 0
 
-    def _get_advisor_id(self, email: str):
+    def _get_advisor_id(self, advisor=None):
+        if advisor:
+            advisor_email = advisor
+        else:
+            advisor_email = self._email
+
         sql = "SELECT user_id FROM user WHERE email= %s"
         with Database() as _db:
-            result = _db.select_with_params(sql, [email, ])
+            result = _db.select_with_params(sql, [advisor_email, ])
 
         if result:
             return result[0][0]
@@ -351,10 +356,90 @@ class User:
             return_list.append(data_dict)
         return return_list
 
-    def _update_value(self, value):
-        print(type(value))
-        if type(value) is list \
-                or type(value) is tuple:
-            return value[0]
+    def get_all_students(self) -> any:
+        advisor_id = self._get_advisor_id()
+        sql = """
+                SELECT 
+                    user.user_id, 
+                    user.email 
+                FROM student
+                JOIN degree_prog 
+                    ON degree_prog.degree_prog_id = student.degree_program_id
+                JOIN user
+                    ON user.user_id = student.user_id
+                JOIN advisor
+                    ON advisor.college_id = degree_prog.college_id
+                WHERE advisor.user_id = %s"""
+
+        with Database() as _db:
+            result = _db.select_into_list(sql, [advisor_id, ])
+
+        if result:
+            return 1, result, 200
         else:
-            return value
+            return 0, 'Internal Server Error', 500
+
+    def admin_get_student_info(self, student_id: str) -> any:
+
+        return self._get_student_info(student_id)
+
+    def _get_student_info(self, student_id: str) -> any:
+        sql = """
+                SELECT 
+                    u.user_id,
+                    u.email,
+                    CONCAT(u.first_name, ' ', u.last_name) AS name,
+                    d.program_name
+                FROM user u
+                JOIN student s 
+                    ON s.user_id = u.user_id
+                JOIN degree_prog d
+                    ON s.degree_program_id = d.degree_prog_id
+                WHERE u.user_id = %s;
+            """
+        with Database() as _db:
+            user_info = _db.select_into_list(sql, [student_id, ])
+
+        if user_info:
+            degree_prog = self._get_student_degree_prog(student_id)
+            success, data, code = self._get_student_progress(student_id, degree_prog)
+
+            if success:
+                return_object = self._process_student_admin_info(user_info, data)
+                response = {
+                    'success': success,
+                    'return_obj': return_object,
+                    'code': code
+                }
+                return success, response, code
+        return 0, 'Internal Server Error', 500
+
+    def _process_student_admin_info(self, student_info: any, data: any) -> any:
+        return_obj = {}
+
+        for info in student_info:
+            return_obj['user_id'] = info[0]
+            return_obj['email'] = info[1]
+            return_obj['name'] = info[2]
+            return_obj['program'] = info[3]
+
+        return_obj['complete'] = []
+        return_obj['required'] = []
+        return_obj['waiting_approval'] = []
+        return_obj['in_progress'] = []
+
+        for course in data:
+            status = course.get('class_status')
+            del course['approved']
+
+            if status == 'required':
+                return_obj['required'].append(course)
+            elif status == 'waiting_approval':
+                return_obj['waiting_approval'].append(course)
+            elif status == 'in_progress':
+                return_obj['in_progress'].append(course)
+            else:
+                return_obj['complete'].append(course)
+
+        return return_obj
+

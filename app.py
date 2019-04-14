@@ -209,6 +209,43 @@ def get_flowchart_data(email):
         return _process_response(data, code)
 
 
+@app.route("/progress-tracker/v1/getAllStudents/<path:admin>", methods=['POST'])
+def get_students(admin):
+    user = User(admin)
+    authorization = request.headers.get('Authorization')
+    success, msg, code = _verify_headers(admin, authorization)
+    if not success:
+        return _process_error_response(success, msg, code)
+
+    success, students, code = user.get_all_students()
+    if not success:
+        return _process_error_response(success, students, code)
+    else:
+        return _process_response(students, code)
+
+
+@app.route("/progress-tracker/v1/adminGetStudentProgress", methods=['POST'])
+def admin_student_progress():
+    if not request.is_json:
+        abort(400)
+    else:
+        data = request.get_json()
+        student_id = data['student_id']
+        advisor = data['advisor']
+        authorization = request.headers.get('Authorization')
+        success, msg, code = _verify_headers(advisor, authorization)
+        if code >= 400:
+            return _process_error_response(success, msg, code)
+        else:
+            user = User(advisor)
+            success, msg, code = user.admin_get_student_info(student_id)
+
+            if success:
+                return _process_response(msg, code)
+            else:
+                return _process_error_response(success, msg, code)
+
+
 def _process_response(result: any, code: int) -> any:
     try:
         resp = app.response_class(
