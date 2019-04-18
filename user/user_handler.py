@@ -443,3 +443,32 @@ class User:
 
         return return_obj
 
+    def update_student_progress(self, data: any) -> any:
+        user_id = self._fetch_user_id()
+        sql = """SELECT course_number FROM course WHERE course_id=%s"""
+        insert_sql = """INSERT INTO student_sched (user_id, class_id, course_code,
+                            approved, class_status)
+                        VALUES(%s, %s, %s, %s, %s)
+                     """
+        try:
+            with Database() as _db:
+                for course in data:
+                    course_id = course.get('id')
+                    course_name = course.get('value')
+                    approved = course.get('approved')
+                    status = course.get('status')
+
+                    if course_name is None:
+                        result = _db.select_into_list(sql, [course_id, ])
+                        course_name = result[0][0]
+                    _db.execute_sql(insert_sql, [user_id, course_id, course_name,
+                                                 approved, status,])
+
+                response = {
+                    'code': 201,
+                    'success': 1,
+                    'message': 'success'
+                }
+            return 1, response , 201
+        except Exception as e:
+            return 0, 'Internal Server Error', 500
