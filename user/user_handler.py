@@ -472,3 +472,46 @@ class User:
             return 1, response , 201
         except Exception as e:
             return 0, 'Internal Server Error', 500
+
+    def admin_update_student_info(self, student_id: str, approved: any, denied: any, new_status: str) -> any:
+
+        for k, v, in approved.items():
+            course_code = k
+            course_id = v
+
+            sql = """UPDATE student_sched 
+                     SET approved=1, class_status=%s
+                     WHERE user_id=%s
+                        AND class_id=%s
+                        AND course_code=%s"""
+
+            try:
+                with Database() as _db:
+                    _db.execute_sql(sql, [new_status, student_id, course_id, course_code, ])
+
+            except Exception as e:
+                return 0, 'Internal Server Error', 500
+
+        for k, v in denied.items():
+            course_code = k
+            course_id = v
+
+            sql = """DELETE FROM student_sched 
+                     WHERE user_id=%s
+                        AND class_id=%s
+                        AND course_code=%s"""
+
+            try:
+                with Database() as _db:
+                    _db.execute_sql(sql, [student_id, course_id, course_code, ])
+
+            except Exception as e:
+                return 0, 'Internal Server Error', 500
+
+        response = {
+            'code': 201,
+            'success': 1,
+            'message': 'success'
+        }
+
+        return 1, response, 201

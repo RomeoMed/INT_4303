@@ -266,6 +266,32 @@ def update_student_progress(email):
                 return _process_error_response(success, msg, code)
 
 
+@app.route("/progress-tracker/v1/adminUpdateStudentProgress", methods=['POST'])
+def admin_update_student_progress():
+    if not request.is_json:
+        abort(400)
+    else:
+        data = request.get_json()
+        advisor = data['advisor']
+        student_id = data['student_id']
+        authorization = request.headers.get('Authorization')
+        success, msg, code = _verify_headers(advisor, authorization)
+        if code >= 400:
+            return _process_error_response(success, msg, code)
+        else:
+            user = User(advisor)
+            approved = data['approved']
+            denied = data['denied']
+            status = data['new_status']
+
+            success, msg, code = user.admin_update_student_info(student_id, approved, denied, status)
+
+            if success:
+               return _process_response(msg, code)
+            else:
+               return _process_error_response(success, msg, code)
+
+
 def _process_response(result: any, code: int) -> any:
     try:
         resp = app.response_class(
