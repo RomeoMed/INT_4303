@@ -10,9 +10,8 @@ class EmailHandler:
         self._recipient = recipient
         self.msg = MIMEMultipart()
         self.msg['Subject'] = 'A New Course Request Awaits Your Approval'
-        self.msg['From'] = 'donotreply@ltu.edu' + ' < rmedoro@ltu.edu >'
         self.msg['To'] = recipient
-        self.msg.add_header('reply-to', 'rmedoro@ltu.edu')
+        self.sender = ''
         self._connect()
 
     @staticmethod
@@ -31,7 +30,9 @@ class EmailHandler:
 
     def _connect(self) -> None:
         sender = self._set_sender()
+        self.sender = sender
         password = self._set_password()
+        self.msg['From'] = 'donotreply@ltu.edu' + ' < ' + sender + ' >'
         self._smtp_server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
         self._smtp_server.login(sender, password)
 
@@ -45,20 +46,7 @@ class EmailHandler:
         self.msg.attach(MIMEText(html, 'html'))
 
         text = self.msg.as_string()
-        self._smtp_server.sendmail('progressTracker@ltu.edu', self._recipient, text)
+        self._smtp_server.sendmail(self.sender, self._recipient, text)
 
     def _disconnect(self) -> None:
         self._smtp_server.quit()
-
-
-if __name__ == '__main__':
-    selected_courses = ['INT_1213', 'INT_4444', 'INT_9999', "MGT_9999"]
-    message = "Attention Advisors:\n\nRomeo has requested approval to take the following courses:\n"
-    for c in selected_courses:
-        message = message + "\t" + c + "\n"
-
-    message = message + 'Please address this request at your earliest convenience.\n\n'
-    message = message + "Sincerely,\n\nLTU Progress Tracker"
-
-    email_handler = EmailHandler('romeo.medoro@gmail.com')
-    email_handler.send_email(message)
