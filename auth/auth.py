@@ -30,7 +30,7 @@ class Auth:
     def process_user_login(self, pwd: str):
         if not self._email or not pwd:
             self._logger.error('process_user_login missing user or password')
-            return 0, 'Bad Request: missing email_lib or password', 400
+            return 0, 'Bad Request: missing email or password', 400
         logged_in, response, code = self._user.login(pwd)
 
         if not logged_in:
@@ -41,7 +41,7 @@ class Auth:
     def process_user_signup(self, pwd: str, firstname: str, lastname: str):
         if not self._email or not pwd:
             self._logger.error('process_user_signup missing user or password')
-            return 0, 'Bad Request: missing email_lib or password', 400
+            return 0, 'Bad Request: missing email or password', 400
         success, response, code = self._user.sign_up(pwd, firstname, lastname)
         if not success:
             return 0, response, code

@@ -50,3 +50,4 @@ class EmailHandler:
 
     def _disconnect(self) -> None:
         self._smtp_server.quit()
+

@@ -37,14 +37,14 @@ class User:
         exists = self.check_if_user_exists()
 
         if exists:
-            self._logger.error('Sign UP error, user already exists! email_lib: {}'.format(self._email))
-            return 0, 'Account already exists for this email_lib', 200
+            self._logger.error('Sign UP error, user already exists! email: {}'.format(self._email))
+            return 0, 'Account already exists for this email', 200
 
         return self.create_user(firstname, lastname)
 
     def _fetch_user_id(self) -> int:
-        self._logger.info('_fetch_user_id for email_lib: {}'.format(self._email))
-        sql = """SELECT user_id FROM user WHERE email_lib = %s"""
+        self._logger.info('_fetch_user_id for email: {}'.format(self._email))
+        sql = """SELECT user_id FROM user WHERE email = %s"""
 
         with Database() as _db:
             user_id = _db.select_with_params(sql, [self._email, ])
@@ -54,15 +54,15 @@ class User:
             return 0
 
     def fetch_user_login(self) -> any:
-        self._logger.info('Fetching user login for email_lib: {}'.format(self._email))
+        self._logger.info('Fetching user login for email: {}'.format(self._email))
         with Database() as _db:
-            sql = """SELECT pwd_hash FROM login WHERE email_lib = %s"""
+            sql = """SELECT pwd_hash FROM login WHERE email = %s"""
             result = _db.select_with_params(sql, [self._email, ])
 
         decrypted_pwd = self.cipher.decrypt(result[0][0])
 
         if decrypted_pwd != self._pwd:
-            self._logger.error('fetch_user_login password mismatch for email_lib: {}'.format(self._email))
+            self._logger.error('fetch_user_login password mismatch for email: {}'.format(self._email))
             return 0, 'invalid_password'
         else:
             return 1, 'success'
@@ -78,7 +78,7 @@ class User:
 
                 if self.advisor:
                     advisor_user = 1
-                sql = """INSERT INTO user (email_lib, advisor, first_name, last_name) 
+                sql = """INSERT INTO user (email, advisor, first_name, last_name) 
                         VALUES(%s, %s, %s, %s)"""
 
                 new_id = _db.execute_sql(sql, [self._email, advisor_user, firstname, lastname, ])
@@ -97,7 +97,7 @@ class User:
 
                     _db.execute_sql(sql, params)
 
-                    sql = """INSERT INTO login (user_id, email_lib, pwd_hash)
+                    sql = """INSERT INTO login (user_id, email, pwd_hash)
                             VALUES(%s, %s, %s)"""
                     _db.execute_sql(sql, [new_id, self._email, encrypted_pwd])
 
@@ -119,21 +119,21 @@ class User:
         with open('advisors.json') as f:
             data = json.load(f)
         if email in data:
-            self._logger.info('check_if_advisor_user email_lib: {}, result=True'.format(email))
+            self._logger.info('check_if_advisor_user email: {}, result=True'.format(email))
             college_id = data[email]
             return 1, college_id
         return 0, None
 
     def get_user_role(self):
-        self._logger.info('get_user_role for email_lib: {}'.format(self._email))
-        sql = """SELECT advisor FROM user WHERE email_lib=%s"""
+        self._logger.info('get_user_role for email: {}'.format(self._email))
+        sql = """SELECT advisor FROM user WHERE email=%s"""
         with Database() as _db:
             result = _db.select_with_params(sql, [self._email])
         return result[0][0]
 
     # TODO: deprecate?
     """
-    def get_student_details(self, email_lib: str):
+    def get_student_details(self, email: str):
         first_login = self.is_first_login()
 
         if first_login:
@@ -143,7 +143,7 @@ class User:
     """
 
     def check_if_user_exists(self) -> bool:
-        sql = """SELECT user_id FROM user WHERE email_lib=%s"""
+        sql = """SELECT user_id FROM user WHERE email=%s"""
         with Database() as _db:
             result = _db.select_with_params(sql, [self._email, ])
         if result:
@@ -215,7 +215,7 @@ class User:
             return 0, 'Internal Server Error', 500
 
     def update_student_details(self, prog_id: str, advisor: str):
-        self._logger.info('update_student_details for email_lib: {}'.format(self._email))
+        self._logger.info('update_student_details for email: {}'.format(self._email))
         try:
             advisor_id = self._get_advisor_id(advisor)
             sql = """UPDATE student SET
@@ -237,7 +237,7 @@ class User:
         else:
             advisor_email = self._email
 
-        sql = "SELECT user_id FROM user WHERE email_lib= %s"
+        sql = "SELECT user_id FROM user WHERE email= %s"
         with Database() as _db:
             result = _db.select_with_params(sql, [advisor_email, ])
 
@@ -380,7 +380,7 @@ class User:
         sql = """
                 SELECT 
                     user.user_id, 
-                    user.email_lib 
+                    user.email 
                 FROM student
                 JOIN degree_prog 
                     ON degree_prog.degree_prog_id = student.degree_program_id
@@ -399,14 +399,14 @@ class User:
             return 0, 'Internal Server Error', 500
 
     def admin_get_student_info(self, student_id: str) -> any:
-        self._logger.info('admin_get_student_info for student email_lib: {}'.format(self._email))
+        self._logger.info('admin_get_student_info for student email: {}'.format(self._email))
         return self._get_student_info(student_id)
 
     def _get_student_info(self, student_id: str) -> any:
         sql = """
                 SELECT 
                     u.user_id,
-                    u.email_lib,
+                    u.email,
                     CONCAT(u.first_name, ' ', u.last_name) AS name,
                     d.program_name
                 FROM user u
@@ -439,7 +439,7 @@ class User:
 
         for info in student_info:
             return_obj['user_id'] = info[0]
-            return_obj['email_lib'] = info[1]
+            return_obj['email'] = info[1]
             return_obj['name'] = info[2]
             return_obj['program'] = info[3]
 
@@ -464,7 +464,7 @@ class User:
         return return_obj
 
     def update_student_progress(self, data: any) -> any:
-        self._logger.info('update_student_progress for email_lib: {}'.format(self._email))
+        self._logger.info('update_student_progress for email: {}'.format(self._email))
         user_id = self._fetch_user_id()
         sql = """SELECT course_number FROM course WHERE course_id=%s"""
         insert_sql = """INSERT INTO student_sched (user_id, class_id, course_code,

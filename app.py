@@ -23,7 +23,7 @@ def sign_in_gate():
 
     if not request.is_json:
         _logger.error('ERROR---->Invalid request body for endpoint: signInGate')
-        abort(400)
+        resp = _process_error_response(0, 'Invalid request body.', 401)
     else:
         data = request.get_json()
         user_email = data.get('user_email')
@@ -156,7 +156,7 @@ def get_student_details():
 """
 
 
-@app.route('/progress-tracker/v1/checkEmailExists/<path:email_lib>', methods=['POST'])
+@app.route('/progress-tracker/v1/checkEmailExists/<path:email>', methods=['POST'])
 def check_email_exists(email):
     user = User(email)
     authorization = request.headers.get('Authorization')
@@ -176,7 +176,7 @@ def check_email_exists(email):
     return _process_response(result, 200)
 
 
-@app.route("/progress-tracker/v1/initialCourseIntake/<path:email_lib>", methods=['POST'])
+@app.route("/progress-tracker/v1/initialCourseIntake/<path:email>", methods=['POST'])
 def initial_course_intake(email):
     user = User(email)
     authorization = request.headers.get('Authorization')
@@ -193,7 +193,7 @@ def initial_course_intake(email):
         return _process_response({"success": 1, "message": msg, "code": code}, code)
 
 
-@app.route('/progress-tracker/v1/getFlowchartData/<path:email_lib>', methods=['POST'])
+@app.route('/progress-tracker/v1/getFlowchartData/<path:email>', methods=['POST'])
 def get_flowchart_data(email):
     user = User(email)
     authorization = request.headers.get('Authorization')
@@ -248,7 +248,7 @@ def admin_student_progress():
                 return _process_error_response(success, msg, code)
 
 
-@app.route("/progress-tracker/v1/updateStudentProgress/<path:email_lib>", methods=['POST'])
+@app.route("/progress-tracker/v1/updateStudentProgress/<path:email>", methods=['POST'])
 def update_student_progress(email):
     if not request.is_json:
         _logger.error('ERROR--->Invalid request body for endpoint updateStudentProgress')
