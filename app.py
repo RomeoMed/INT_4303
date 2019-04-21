@@ -2,7 +2,6 @@ import logging
 import json
 from logging.handlers import RotatingFileHandler
 from flask import Flask, request, abort
-#from flask_cors import CORS
 from auth import Auth
 from user import User
 
@@ -23,7 +22,7 @@ def sign_in_gate():
     _logger.info('User Sign in request')
 
     if not request.is_json:
-        _logger.info('ERROR---->Invalid request body')
+        _logger.error('ERROR---->Invalid request body for endpoint: signInGate')
         abort(400)
     else:
         data = request.get_json()
@@ -53,7 +52,7 @@ def sign_in_gate():
 def sign_up_gate():
     _logger.info('User sign up request')
     if not request.is_json:
-        _logger.info('ERROR---->Invalid request body')
+        _logger.error('ERROR---->Invalid request body for endpoint signUpGate')
         abort(400)
     else:
         data = request.get_json()
@@ -63,7 +62,6 @@ def sign_up_gate():
         lastname = data['lastname']
         authorization = request.headers.get('Authorization')
         success, msg, code = _verify_headers(user_email, authorization)
-
         if not success:
             return _process_error_response(success, msg, code)
 
@@ -89,6 +87,7 @@ def sign_up_gate():
 @app.route("/progress-tracker/v1/getUserRole", methods=['POST'])
 def get_user_role():
     if not request.is_json:
+        _logger.error('ERROR--->Invalid request body for endpoint: getUserRole')
         abort(400)
 
     data = request.get_json()
@@ -118,6 +117,7 @@ def get_user_role():
 @app.route("/progress-tracker/v1/getProgramCourses", methods=["POST"])
 def get_program_courses():
     if not request.is_json:
+        _logger.error('ERROR---->Invalid request body for endpoint: getProgramCourses')
         abort(400)
     else:
         data = request.get_json()
@@ -137,7 +137,7 @@ def get_program_courses():
             if success:
                 return _process_response(course_obj, 200)
 
-
+"""
 @app.route("/progress-tracker/v1/getStudentDetails", methods=['POST'])
 def get_student_details():
     if not request.is_json:
@@ -153,9 +153,10 @@ def get_student_details():
             user = User(user_email)
             user_details = user.get_student_details()
             print('incomplete')
+"""
 
 
-@app.route('/progress-tracker/v1/check_email_exists/<path:email>', methods=['POST'])
+@app.route('/progress-tracker/v1/checkEmailExists/<path:email_lib>', methods=['POST'])
 def check_email_exists(email):
     user = User(email)
     authorization = request.headers.get('Authorization')
@@ -165,7 +166,7 @@ def check_email_exists(email):
         return _process_error_response(success, msg, code)
 
     exists = user.check_if_user_exists()
-    if exists == True:
+    if exists is True:
         response = 1
     else:
         response = 0
@@ -175,7 +176,7 @@ def check_email_exists(email):
     return _process_response(result, 200)
 
 
-@app.route("/progress-tracker/v1/initialCourseIntake/<path:email>", methods=['POST'])
+@app.route("/progress-tracker/v1/initialCourseIntake/<path:email_lib>", methods=['POST'])
 def initial_course_intake(email):
     user = User(email)
     authorization = request.headers.get('Authorization')
@@ -192,7 +193,7 @@ def initial_course_intake(email):
         return _process_response({"success": 1, "message": msg, "code": code}, code)
 
 
-@app.route('/progress-tracker/v1/getFlowchartData/<path:email>', methods=['POST'])
+@app.route('/progress-tracker/v1/getFlowchartData/<path:email_lib>', methods=['POST'])
 def get_flowchart_data(email):
     user = User(email)
     authorization = request.headers.get('Authorization')
@@ -227,6 +228,7 @@ def get_students(admin):
 @app.route("/progress-tracker/v1/adminGetStudentProgress", methods=['POST'])
 def admin_student_progress():
     if not request.is_json:
+        _logger.error('ERROR--->Invalid body in request for endpoint: adminGetStudentProgress')
         abort(400)
     else:
         data = request.get_json()
@@ -246,9 +248,10 @@ def admin_student_progress():
                 return _process_error_response(success, msg, code)
 
 
-@app.route("/progress-tracker/v1/updateStudentProgress/<path:email>", methods=['POST'])
+@app.route("/progress-tracker/v1/updateStudentProgress/<path:email_lib>", methods=['POST'])
 def update_student_progress(email):
     if not request.is_json:
+        _logger.error('ERROR--->Invalid request body for endpoint updateStudentProgress')
         abort(400)
     else:
         data = request.get_json()
@@ -269,6 +272,7 @@ def update_student_progress(email):
 @app.route("/progress-tracker/v1/adminUpdateStudentProgress", methods=['POST'])
 def admin_update_student_progress():
     if not request.is_json:
+        _logger.error('ERROR--->invalid request body for endpoint: adminUpdateStudentProgress')
         abort(400)
     else:
         data = request.get_json()
@@ -284,7 +288,7 @@ def admin_update_student_progress():
             denied = data['denied']
             status = data['new_status']
 
-            success, msg, code = user.admin_update_student_info(student_id, approved, denied, status)
+            success, msg, code = user.admin_update_student_progress(student_id, approved, denied, status)
 
             if success:
                return _process_response(msg, code)
@@ -303,7 +307,7 @@ def _process_response(result: any, code: int) -> any:
 
         return resp
     except Exception as e:
-        print('Process response error: ' + e)
+        _logger.error('Unable to process response: {}'.format(e))
 
 
 def _process_error_response(success: int, msg: str, code: int) -> any:

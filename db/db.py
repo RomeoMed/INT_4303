@@ -2,13 +2,12 @@
 # Database connection object
 #
 from retrying import retry
-from typing import Optional
 import MySQLdb
 import json
 import logging
 
 
-_logger = logging.getLogger("FinalProjectApp")
+_logger = logging.getLogger("progress_tracker_api")
 
 
 def retry_on_dberror(exception: Exception) -> bool:
@@ -35,6 +34,8 @@ class _rollback(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is not None:
+            _logger.error("DB error ---> exc_type: {}, exc_val: {}".format(exc_type, exc_val))
+            _logger.error("DB Rolling Back transaction!")
             self.conn.rollback()
 
 
@@ -79,37 +80,42 @@ class Database(object):
 
     @retry(retry_on_exception=retry_on_dberror, stop_max_delay=600000,
            wait_exponential_multiplier=1000, wait_exponential_max=10000)
-    def execute_sql(self, sql: str, data: any):
+    def execute_sql(self, sql: str, data: any) -> any:
+        _logger.info("DB Executing: {}".format(sql))
         with _rollback(self.conn) as _db:
             _db.execute(sql, data)
             new_id = _db.lastrowid
         return new_id
 
-    def delete(self, sql: str, data: any):
+    def delete(self, sql: str, data: any) -> any:
+        _logger.info("DB Executing: {}".format(sql))
         with _rollback(self.conn) as _db:
             _db.execute(sql, data)
 
     def select_all(self, sql: str) -> any:
         query = 'SELECT * FROM {} '.format(sql)
-
+        _logger.info("DB Executing: {}".format(query))
         with _rollback(self.conn) as _db:
             _db.execute(query)
             row = _db.fetchall()
         return row
 
     def select(self, query: str) -> any:
+        _logger.info("DB Executing: {}".format(query))
         with _rollback(self.conn) as _db:
             _db.execute(query)
             result = _db.fetchall()
         return result
 
     def select_with_params(self, query: str, params: any) -> any:
+        _logger.info("DB Executing: {}".format(query))
         with _rollback(self.conn) as _db:
             _db.execute(query, params)
         result = _db.fetchall()
         return result
 
     def select_into_list(self, query: str, params: any) -> any:
+        _logger.info("DB Executing: {}".format(query))
         return_list = []
         with _rollback(self.conn) as _db:
             _db.execute(query, params)
@@ -127,12 +133,14 @@ class Database(object):
         return return_list
 
     def select_no_params(self, query: str) -> any:
+        _logger.info("DB Executing: {}".format(query))
         with _rollback(self.conn) as _db:
             _db.execute(query)
         result = _db.fetchall()
         return self.convert_to_list(result)
 
-    def convert_to_list(self, result) -> any:
+    @staticmethod
+    def convert_to_list(result) -> any:
         ret_list = []
         for res in result:
             tmp_list = []
@@ -140,11 +148,12 @@ class Database(object):
                 tmp_list.append(i)
             ret_list.append(tmp_list)
         return ret_list
-    # noinspection PyUnusedLocal,PyUnusedLocal
+
     def __exit__(self, ttype, value, traceback) -> None:
         """ Context manager exit. Commits transaction.
 
         We don't roll back if there is an exception, as that is handled in _rollback().
         """
         if ttype is None:
+            _logger.info("DB query executed successfully, committing results")
             self.conn.commit()

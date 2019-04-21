@@ -20,14 +20,17 @@ class Auth:
         auth_type, auth = header.split(' ')
         auth_val = base64.b64decode(auth.encode('UTF-8')).decode('UTF-8')
         user, pwd = auth_val.split(':')
+        self._logger.info('Auth validate headers user: {}'.format(user))
         if user == self._api_user and pwd == self._api_pwd:
             return 1
         else:
+            self._logger.error('Invalid user/pwd in request header: user: {}, pwd: {}'.format(user, pwd))
             return 0
 
     def process_user_login(self, pwd: str):
         if not self._email or not pwd:
-            return 0, 'Bad Request: missing email or password', 400
+            self._logger.error('process_user_login missing user or password')
+            return 0, 'Bad Request: missing email_lib or password', 400
         logged_in, response, code = self._user.login(pwd)
 
         if not logged_in:
@@ -37,7 +40,8 @@ class Auth:
 
     def process_user_signup(self, pwd: str, firstname: str, lastname: str):
         if not self._email or not pwd:
-            return 0, 'Bad Request: missing email or password', 400
+            self._logger.error('process_user_signup missing user or password')
+            return 0, 'Bad Request: missing email_lib or password', 400
         success, response, code = self._user.sign_up(pwd, firstname, lastname)
         if not success:
             return 0, response, code
