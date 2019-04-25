@@ -11,6 +11,7 @@ class EmailHandler:
         self.msg = MIMEMultipart()
         self.msg['Subject'] = 'A New Course Request Awaits Your Approval'
         self.msg['To'] = recipient
+        self.msg.add_header('reply-to', 'ltuprogress.tracker@gmail.com')
         self.sender = ''
         self._connect()
 

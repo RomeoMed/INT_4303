@@ -23,7 +23,7 @@ def sign_in_gate():
 
     if not request.is_json:
         _logger.error('ERROR---->Invalid request body for endpoint: signInGate')
-        resp = _process_error_response(0, 'Invalid request body.', 401)
+        abort(400)
     else:
         data = request.get_json()
         user_email = data.get('user_email')
