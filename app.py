@@ -67,9 +67,6 @@ def sign_up_gate():
 
         auth = Auth(user_email)
         success, message, code = auth.process_user_signup(password, firstname, lastname)
-        print('Success: ' + str(success))
-        print('Message: ' + str(message))
-        print('Code: ' + str(code))
 
         if code >= 400:
             return _process_error_response(success, message, code)
@@ -136,24 +133,6 @@ def get_program_courses():
 
             if success:
                 return _process_response(course_obj, 200)
-
-"""
-@app.route("/progress-tracker/v1/getStudentDetails", methods=['POST'])
-def get_student_details():
-    if not request.is_json:
-        abort(400)
-    else:
-        data = request.get_json()
-        user_email = data['user_email']
-        authorization = request.headers.get('Authorization')
-        success, msg, code = _verify_headers(user_email, authorization)
-        if code >= 400:
-            return _process_error_response(success, msg, code)
-        else:
-            user = User(user_email)
-            user_details = user.get_student_details()
-            print('incomplete')
-"""
 
 
 @app.route('/progress-tracker/v1/checkEmailExists/<path:email>', methods=['POST'])
@@ -291,9 +270,9 @@ def admin_update_student_progress():
             success, msg, code = user.admin_update_student_progress(student_id, approved, denied, status)
 
             if success:
-               return _process_response(msg, code)
+                return _process_response(msg, code)
             else:
-               return _process_error_response(success, msg, code)
+                return _process_error_response(success, msg, code)
 
 
 def _process_response(result: any, code: int) -> any:

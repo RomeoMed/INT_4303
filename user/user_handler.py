@@ -131,17 +131,6 @@ class User:
             result = _db.select_with_params(sql, [self._email])
         return result[0][0]
 
-    # TODO: deprecate?
-    """
-    def get_student_details(self, email: str):
-        first_login = self.is_first_login()
-
-        if first_login:
-            return 0, 'details_form', 200
-        else:
-            return self.get_details()
-    """
-
     def check_if_user_exists(self) -> bool:
         sql = """SELECT user_id FROM user WHERE email=%s"""
         with Database() as _db:
@@ -149,18 +138,6 @@ class User:
         if result:
             return True
         return False
-
-    # TODO: Deprecate?
-    """
-    def is_first_login(self) -> bool:
-        sql = 'SELECT last_updated FROM student WHERE user_id=%s'
-        with Database() as _db:
-            result = _db.select_with_params(sql, [self._user_id, ])
-        if result[0][0]:
-            return False
-        else:
-            return True
-    """
 
     def get_program_id(self, degree: str) -> str:
         self._logger.info('Get Program ID method for degree: {}'.format(degree))
