@@ -461,17 +461,17 @@ class User:
                         result = _db.select_into_list(sql, [course_id, ])
                         course_name = result[0][0]
 
-                        if status == 'complete':
-                            insert_sql = """UPDATE student_sched
-                                            SET class_status=%s
-                                            WHERE user_id=%s 
-                                                AND class_id=%s
-                                                AND course_code=%s
-                                          """
-                            params = [status, user_id, course_id, course_name, ]
-                        else:
-                            selected_courses.append(course_name)
-                            params = [user_id, course_id, course_name, approved, status, ]
+                    if status == 'complete':
+                        insert_sql = """UPDATE student_sched
+                                        SET class_status=%s
+                                        WHERE user_id=%s 
+                                            AND class_id=%s
+                                            AND course_code=%s
+                                      """
+                        params = [status, user_id, course_id, course_name, ]
+                    else:
+                        selected_courses.append(course_name)
+                        params = [user_id, course_id, course_name, approved, status, ]
                     _db.execute_sql(insert_sql, params)
 
                 message = "Attention Advisors:\n\n{} has requested approval to take the following courses:\n".format(self._email)
@@ -481,7 +481,7 @@ class User:
                 message = message + 'Please address this request at your earliest convenience.\n\n'
                 message = message + "Sincerely,\n\nLTU Progress Tracker"
 
-                email_handler = EmailHandler(self._email)
+                email_handler = EmailHandler('rmedoro@ltu.edu')
                 email_handler.send_email(message)
 
                 response = {
